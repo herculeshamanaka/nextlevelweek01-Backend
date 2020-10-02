@@ -18,7 +18,7 @@ class PointsController {
     const trxKnex = await knex.transaction();
   
     const newPoint = {
-      image: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=400&q=60',
+      image: request.file.filename,
       name,
       email,
       whatsapp,
@@ -30,11 +30,14 @@ class PointsController {
 
     const createdIds = await trxKnex('collect_points').insert(newPoint);
   
-    const collectPointItems = collectItems.map((item_id :number) => {
-      return {
-        collect_item_id: item_id,
-        collect_point_id: createdIds[0],
-      }
+    const collectPointItems = collectItems
+      .split(',')
+      .split((item: string) => Number(item.trim()))
+      .map((item_id :number) => {
+        return {
+          collect_item_id: item_id,
+          collect_point_id: createdIds[0],
+        }
     });
   
     await trxKnex('collect_point_items').insert(collectPointItems);
@@ -57,12 +60,17 @@ class PointsController {
       return response.status(400).json({message: 'Collect point not found.'});
     }
 
+    const serializedPoint = {
+        ...point,
+        image_url: `http://192.168.0.51:3333/uploads/${point.image}`
+    };
+
     const items = await knex('collect_items')
     .join('collect_point_items', 'collect_items.id', '=', 'collect_point_items.collect_item_id')
     .where('collect_point_items.collect_point_id', id)
     .select('collect_items.title');
 
-    return response.json({point, items});
+    return response.json({point: serializedPoint, items});
   }
 
   async index(request: Request, response: Response)  {
@@ -80,7 +88,14 @@ class PointsController {
       .distinct()
       .select('collect_points.*');
 
-    return response.json(points);
+    const serializedPoints = points.map(point => {
+      return {
+        ...point,
+        image_url: `http://192.168.0.51:3333/uploads/${point.image}`
+      }
+    });
+
+    return response.json(serializedPoints);
   }
 }
 export default PointsController;
